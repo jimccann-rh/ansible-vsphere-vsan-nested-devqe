@@ -1,0 +1,5 @@
+ time  ANSIBLE_LOG_PATH=/tmp/dynamic_$(date +"%d%m%Y_%H%M%S").log ansible-playbook --private-key ../id_rsa_ci -i hosts main.yml --extra-var version="7" --extra-var='{"target_hosts": [nested7-vsan1-host.vpshere.local,nested7-vsan2-host.vpshere.local,nested7-vsan3-host.vpshere.local]}' --extra-var='{"target_vcs": [nested7-vsan-VC.vpshere.local]}' --extra-var esximemory="65536" --extra-var esxicpu="16" --extra-var esxicpucore="8"
+
+time  ANSIBLE_LOG_PATH=/tmp/dynamic_$(date +"%d%m%Y_%H%M%S").log ansible-playbook --private-key ../id_rsa_ci -i hosts main.yml --extra-var version="8" --extra-var='{"target_hosts": [nested8-vsan1-host.vpshere.local,nested8-vsan2-host.vpshere.local,nested8-vsan3-host.vpshere.local,nested8-vsan4-host.vpshere.local]}' --extra-var='{"target_vcs": [nested8-vsan-VC.vpshere.local]}' --extra-var esximemory="65536" --extra-var esxicpu="16" --extra-var esxicpucore="8"
+
+ --extra-var removevsphere=true -t removevsphere
