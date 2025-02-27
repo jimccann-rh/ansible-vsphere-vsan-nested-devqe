@@ -77,7 +77,7 @@
         disk_provisioning: thin
         networks:
             "VM Network": "{{ vc_fact_deployment_network }}"
-            #"VM Network": "{{ vc_fact_deployment_network2 }}"
+#            "VM Network": "{{ vc_fact_deployment_network2 }}"
         wait_for_ip_address: true
         validate_certs: no
         inject_ovf_env: true
@@ -105,17 +105,50 @@
 #    - debug:
 #        msg: "{{ guest_info }}"
 
+#    - name: "Add disk to virtual machine {{ host_fact_hostname }} version {{ version }}"  # E: line too long (89 > 80 characters) # E: trailing spaces
+#        community.vmware.vmware_guest_disk:
+#          datacenter: "{{ vc_datacenter }}"
+#          name: "{{ host_fact_hostname }}"
+#          disk:
+#            - size_gb: 100
+#              type: thin
+#              datastore: vsanDatastore
+#              state: present
+#              scsi_controller: 0
+#              unit_number: 2
+#            - size_tb: 1
+#              type: thin
+#              datastore: vsanDatastore
+#              state: present
+#              scsi_controller: 0
+#              unit_number: 3
+#            - size_tb: 1
+#              type: thin
+#              datastore: vsanDatastore
+#              state: present
+#              scsi_controller: 0
+#              unit_number: 4
+#
     - name: "Add disk to virtual machine {{ host_fact_hostname }} version {{ version }}" 
       community.vmware.vmware_guest_disk:
         datacenter: "{{ vc_datacenter }}"
         name: "{{ host_fact_hostname }}"
         disk:
+          - size_gb: 100
+            type: thin
+            datastore: vsanDatastore
+            state: present
+            unit_number: 0
+            controller_type: nvme
+            controller_number: 0
           - size_tb: 1
             type: thin
             datastore: vsanDatastore
             state: present
-            scsi_controller: 0
-            unit_number: 2
+            unit_number: 1
+            controller_type: nvme
+            controller_number: 0
+
     
     - name: "MODIFY cpu/memory virtual machine {{ host_fact_hostname }} version {{ version }}"
       community.vmware.vmware_guest:
@@ -127,8 +160,10 @@
 #        guest_id: "{{ vmkguest }}"
         hardware:
           memory_mb: "{{ esximemory }}"
-          num_cpus: "{{ esxicpu }}"
+          num_cpus: "{{ esxicpu }}" 
+          num_cpu_cores_per_socket: "{{ esxicpucore }}"
           nested_virt: true
+          version: 21
     
 - name: "Does ESXi virtual machine {{ host_fact_hostname }} exist"
   community.vmware.vmware_guest:
@@ -154,8 +189,8 @@
   retries: 60
   delay: 5
 
-#- debug:
-#    msg: "{{ guest_info }}"
+- debug:
+    msg: "{{ guest_info }}"
 
 - name: "Does ESXi virtual machine {{ host_fact_hostname }} exist get ip"
   community.vmware.vmware_guest_info:

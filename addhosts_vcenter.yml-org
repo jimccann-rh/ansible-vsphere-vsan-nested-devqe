@@ -48,12 +48,13 @@
     - set_fact:
         advs: { "das.ignoreInsufficientHbDatastore": "True", "das.ignoreRedundantNetWarning": "True" }
 
-    - name: Enable HA without admission control
-      community.vmware.vmware_cluster_ha:
-        datacenter: '{{ vc_fact_datacenter1 }}'
-        cluster_name: '{{ vc_fact_cluster1 }}'
-        enable: true
-        advanced_settings: "{{ advs }}"
+#    - name: Enable HA without admission control
+#      community.vmware.vmware_cluster_ha:
+#        datacenter: '{{ vc_fact_datacenter1 }}'
+#        cluster_name: '{{ vc_fact_cluster1 }}'
+#        enable: true
+#        advanced_settings: "{{ advs }}"
+#      when: hasetup | bool
 
   run_once: true
   module_defaults:
@@ -64,6 +65,7 @@
       password: "{{ vc_fact_password }}"
       validate_certs: false
 
+#  ignore_errors: true # W: comment not indented like content
 
 #- name: ESXi tweaks 
 - block:
@@ -106,9 +108,9 @@
       community.vmware.vmware_host_facts:
       register: host_facts
     
-#    - debug:
-#        msg:
-#         - "{{ host_facts }}"
+    - debug:
+        msg:
+         - "{{ host_facts }}"
 
     - name: Rescan HBA's for a given cluster - all found hosts will be scanned
       community.vmware.vmware_host_scanhba:
@@ -122,25 +124,25 @@
     - set_fact:
          esxip: "{{ hostvars[groups['esxi'][my_idx]].NESTEDVMIP }}"
 
-#    - debug:
-#        msg:
-#         - "{{ host_vmhbas.hosts_disk_info }}"
-#         - "{{ esxip }}"
+    - debug:
+        msg:
+         - "{{ host_vmhbas.hosts_disk_info }}"
+         - "{{ esxip }}"
 
     - set_fact:
          vmhbainfo: "{{ host_vmhbas['hosts_disk_info'][esxip] }}"
 
-#    - debug:
-#        msg:
-#         - "{{ vmhbainfo }}"
+    - debug:
+        msg:
+         - "{{ vmhbainfo }}"
 
-#    - name: Find disk by device_ctd
-#      debug:
-#        msg: "Disk {{ item.canonical_name }} matches vmhba0:C0:T2:L0"
-#      loop: "{{ vmhbainfo }}"
-#      when: item.device_ctd_list[0] == "vmhba0:C0:T2:L0"
-#      #when: item.device_ctd_list
-#      #when: item.device_ctd_list.contains("vmhba0:C0:T2:L0")
+    - name: Find disk by device_ctd
+      debug:
+        msg: "Disk {{ item.canonical_name }} matches vmhba0:C0:T2:L0"
+      loop: "{{ vmhbainfo }}"
+      when: item.device_ctd_list[0] == "vmhba0:C0:T2:L0"
+      #when: item.device_ctd_list
+      #when: item.device_ctd_list.contains("vmhba0:C0:T2:L0")
 
 
     - name: Set disk by device_ctd
@@ -149,9 +151,9 @@
       loop: "{{ vmhbainfo }}"
       when: item.device_ctd_list[0] == "vmhba0:C0:T2:L0"
 
-#    - debug:
-#        msg:
-#          - "{{ vmfs_dn }}"
+    - debug:
+        msg:
+          - "{{ vmfs_dn }}"
 
     - name: Create datastore
       vmware_host_datastore:
@@ -193,6 +195,7 @@
          portgroup_name: "Management Network"
          enable_vmotion: true
          enable_mgmt: true
+         enable_vsan: true
          device: vmk0
          network:
            type: 'dhcp'
@@ -227,3 +230,77 @@
 #      - "Datastore-10.93.60.221"
 ##      - "{{ vmfs_dn }}"
 #- pause:
+#
+#
+#
+#- name: Enable vSAN
+#  community.vmware.vmware_cluster_vsan:
+#    cluster_name: '{{ vc_fact_cluster1 }}'
+#    datacenter: '{{ vc_fact_datacenter1 }}'
+#    enable: true
+#    vsan_auto_claim_storage: true
+
+- pause:
+    minutes: 2
+
+- name: Enable vSAN
+  enable_vsan:
+    vcenter: "{{ hostvars[groups['vc'][0]].NESTEDVMIP }}"
+    user: 'administrator@{{ vc_fact_domain }}'
+    passwd: "{{ vc_fact_password }}"
+    cluster: '{{ vc_fact_cluster1 }}'
+#  ignore_errors: true
+  delegate_to: localhost
+
+- pause:
+    minutes: 1
+
+- name: Set up disk group for vSAN 
+  local_action:
+    module: script
+    args: ./diskgroup.py {{ hostvars[groups['vc'][0]].NESTEDVMIP }} 'administrator@{{ vc_fact_domain }}' {{ vc_fact_password }}
+  register: resultvsan
+
+- debug:
+    msg: "{{ resultvsan.stdout_lines }}"
+
+
+- name: Enable HA without admission control
+  community.vmware.vmware_cluster_ha:
+    hostname: "{{ hostvars[groups['vc'][0]].NESTEDVMIP }}"
+    username: 'administrator@{{ vc_fact_domain }}'
+    password: "{{ vc_fact_password }}"
+    datacenter: '{{ vc_fact_datacenter1 }}'
+    cluster_name: '{{ vc_fact_cluster1 }}'
+    enable: true
+    advanced_settings: "{{ advs }}"
+    validate_certs: false
+  when: hasetup | bool
+
+
+#- name: Diskgroup vSAN
+#  vsan_config:
+#    server: "{{ hostvars[groups['vc'][0]].NESTEDVMIP }}"
+#    username: 'administrator@{{ vc_fact_domain }}'
+#    password: "{{ vc_fact_password }}"
+#  delegate_to: localhost
+
+
+#- name: Diskgroup vSAN
+#  vsandiskgroup:
+#    vcenter: "{{ hostvars[groups['vc'][0]].NESTEDVMIP }}"
+#    user: 'administrator@{{ vc_fact_domain }}'
+#    passwd: "{{ vc_fact_password }}"
+#    cluster: '{{ vc_fact_cluster1 }}'
+##  ignore_errors: true # W: comment not indented like content
+#  delegate_to: localhost
+
+#- name: Claim disks for vSAN
+#  claim_vsan_disks:
+#    vcenter: "{{ hostvars[groups['vc'][0]].NESTEDVMIP }}"
+#    user: 'administrator@{{ vc_fact_domain }}'
+#    passwd: "{{ vc_fact_password }}"
+#    cluster: '{{ vc_fact_cluster1 }}'
+#    datastorename: vsanDatastore
+##  ignore_errors: true
+#
